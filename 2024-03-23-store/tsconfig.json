@@ -17,5 +17,5 @@
     "noEmit": true,
     "rootDir": "."
   },
-  "include": ["mock/**/*.ts", "src/**/*.ts"]
+  "include": ["mock", "src", "ts", "tailwind.config.ts"]
 }

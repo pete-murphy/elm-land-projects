@@ -1,5 +1,6 @@
 /dist
 /.elm-land
+/.elm-watch
 /.env
 /elm-stuff
 /node_modules

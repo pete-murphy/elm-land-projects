@@ -1,5 +1,5 @@
 import { setupWorker } from "msw/browser";
-import { handlers, run } from "./handlers";
+import { handlers, createPosts } from "./handlers";
 
 export const worker = setupWorker(...handlers);
-run();
+createPosts();

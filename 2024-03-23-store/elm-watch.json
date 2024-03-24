@@ -1,0 +1,9 @@
+{
+  "targets": {
+    "main": {
+      "inputs": ["play/Play.elm"],
+      "output": ".elm-watch/main.js"
+    }
+  },
+  "serve": ".elm-watch"
+}

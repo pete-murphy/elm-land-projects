@@ -1,3 +1,8 @@
+import "./styles.css";
+import * as CustomElements from "../ts/customElements";
+
+CustomElements.register();
+
 async function enableMocking() {
   const { worker } = await import("../mock/browser");
 

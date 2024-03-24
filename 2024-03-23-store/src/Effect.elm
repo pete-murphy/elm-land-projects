@@ -6,7 +6,7 @@ module Effect exposing
     , pushRoutePath, replaceRoutePath
     , loadExternalUrl, back
     , map, toCmd
-    , fetchPosts
+    , fetchAuthors, fetchPosts
     )
 
 {-|
@@ -24,6 +24,7 @@ module Effect exposing
 
 -}
 
+import Api.Author as Author
 import Api.Post as Post exposing (Post)
 import Browser.Navigation
 import Dict exposing (Dict)
@@ -93,6 +94,11 @@ fetchPosts : (Result Http.Error (List Post) -> msg) -> Effect msg
 fetchPosts toMsg =
     Post.getAll toMsg
         |> SendCmd
+
+
+fetchAuthors : (Result Http.Error Author.GetAll -> msg) -> Effect msg
+fetchAuthors toMsg =
+    Author.getAll toMsg |> SendCmd
 
 
 

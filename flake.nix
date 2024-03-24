@@ -23,9 +23,15 @@
           pkgs.elmPackages.elm-land
           pkgs.elmPackages.elm-language-server
           pkgs.elm2nix
+
           pkgs.nodejs_20
-          pkgs.nodePackages.prettier
           pkgs.typescript
+          pkgs.nodePackages.prettier
+
+          pkgs.tailwindcss
+          pkgs.rustywind
+          pkgs.nodePackages.postcss
+
           pkgs.alejandra
         ];
       };
