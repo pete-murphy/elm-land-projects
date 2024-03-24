@@ -3,8 +3,10 @@ module Api.Image exposing
     , ImageId
     , decoder
     , decoderImageId
+    , getById
     )
 
+import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline
 
@@ -33,3 +35,15 @@ decoder =
 decoderImageId : Decoder ImageId
 decoderImageId =
     Decode.map ImageId Decode.string
+
+
+
+-- HTTP
+
+
+getById : ImageId -> (Result Http.Error Image -> msg) -> Cmd msg
+getById (ImageId imageId) toMsg =
+    Http.get
+        { url = "/api/images/" ++ imageId
+        , expect = Http.expectJson toMsg decoder
+        }

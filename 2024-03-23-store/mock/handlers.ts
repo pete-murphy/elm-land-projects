@@ -1,8 +1,6 @@
 import { http, HttpResponse, passthrough } from "msw";
 import { faker } from "@faker-js/faker";
 
-const DOG_API_URL = `https://dog.ceo/api/breeds/image/random`;
-
 type PostId = `post-${string}`;
 type AuthorId = `author-${string}`;
 type ImageId = `image-${string}`;
@@ -77,12 +75,16 @@ const endpoints = {
     getById: "/api/authors/:id",
   },
   images: {
-    getById: "/api/images",
+    getById: "/api/images/:id",
   },
 };
 
+const DOG_API_URL = `https://dog.ceo/api/breeds/image/random`;
+const DOG_IMAGE_URL = `https://images.dog.ceo/breeds/:breed/:image`;
+
 export const handlers = [
   http.get(DOG_API_URL, passthrough),
+  http.get(DOG_IMAGE_URL, passthrough),
 
   http.get(endpoints.posts.getAll, async (_) => {
     const AVG = 1_000 + 50 * posts.size;
@@ -106,6 +108,9 @@ export const handlers = [
       await sleep(delay);
       const id = params.id;
       const post = posts.get(id);
+      if (!post) {
+        return HttpResponse.json({ error: "Post not found" }, { status: 404 });
+      }
       return HttpResponse.json(post);
     }
   ),
@@ -130,6 +135,9 @@ export const handlers = [
     await sleep(delay);
     const id = params.id;
     const author = authors.get(id);
+    if (!author) {
+      return HttpResponse.json({ error: "Author not found" }, { status: 404 });
+    }
     return HttpResponse.json({
       ...author,
       posts: postsByAuthor.get(id)?.map((postId) => posts.get(postId)) ?? [],
@@ -173,6 +181,22 @@ export const handlers = [
       },
     });
   }),
+
+  http.get<{ id: ImageId }>(
+    endpoints.images.getById,
+    async ({ request, params }) => {
+      const AVG = 200 + 50 * posts.size;
+      const delay = randomAround(AVG, 200);
+      console.log(...delayMsg(endpoints.images.getById, delay));
+      await sleep(delay);
+      const id = params.id;
+      const image = images.get(id);
+      if (!image) {
+        return HttpResponse.json({ error: "Image not found" }, { status: 404 });
+      }
+      return HttpResponse.json(image);
+    }
+  ),
 ];
 
 // Run
