@@ -1,5 +1,9 @@
 import { http, HttpResponse, passthrough } from "msw";
 import { faker } from "@faker-js/faker";
+import slugify from "slugify";
+
+const SEED = 1;
+faker.seed(SEED);
 
 type PostId = `post-${string}`;
 type AuthorId = `author-${string}`;
@@ -27,18 +31,18 @@ type Image = {
   alt?: string;
 };
 
-const MAX_AUTHORS = 8;
-let authorArray: Array<Author> = [];
-for (let i = 1; i < MAX_AUTHORS; i++) {
-  authorArray.push({
+const MAX_AUTHORS = faker.number.int({ min: 5, max: 10 });
+const authorArray = Array.from(
+  { length: MAX_AUTHORS },
+  (_, i): Author => ({
     id: `author-${i}`,
     name: faker.person.fullName(),
     bio: faker.person.bio(),
-  });
-}
+  })
+);
 
 const genAuthor = (): Author =>
-  authorArray[Math.floor(Math.random() * authorArray.length)]!;
+  authorArray[faker.number.int({ min: 0, max: authorArray.length - 1 })]!;
 
 let authors = new Map<AuthorId, Author>();
 let postsByAuthor = new Map<AuthorId, Array<PostId>>();
@@ -102,7 +106,7 @@ export const handlers = [
   http.get<{ id: PostId }>(
     endpoints.posts.getById,
     async ({ request, params }) => {
-      const AVG = 200 + 50 * posts.size;
+      const AVG = 2_000 + 50 * posts.size;
       const delay = randomAround(AVG, 200);
       console.log(...delayMsg(endpoints.posts.getById, delay));
       await sleep(delay);
@@ -161,7 +165,7 @@ export const handlers = [
     if (!author) {
       return HttpResponse.json({ error: "Author not found" }, { status: 404 });
     }
-    const postId: PostId = `post-${crypto.randomUUID()}`;
+    const postId: PostId = `post-${slugify(title)}`;
     const post = {
       id: postId,
       title,
@@ -212,12 +216,13 @@ export async function createPosts() {
     }
 
     const n = posts.size + 1;
+    const title = faker.lorem.sentence();
     const imageIds = Array.from(
-      { length: Math.floor(Math.random() * 5) },
-      (): ImageId => `image-${crypto.randomUUID()}`
+      { length: faker.number.int({ min: 1, max: 3 }) },
+      (): ImageId => `image-${faker.string.uuid()}`
     );
     const author = genAuthor();
-    const postId: PostId = `post-${crypto.randomUUID()}`;
+    const postId: PostId = `post-${slugify(title)}`;
 
     for (const imageId of imageIds) {
       const url = await fetch(DOG_API_URL)
@@ -229,7 +234,7 @@ export async function createPosts() {
 
     const post = {
       id: postId,
-      title: faker.lorem.sentence(),
+      title,
       authorId: author.id,
       authorName: author.name,
       content: faker.lorem.paragraphs(3),
@@ -252,7 +257,7 @@ export async function createPosts() {
 // Utils
 
 function randomAround(n: number, range: number) {
-  return n + (Math.random() - 0.5) * range;
+  return n + faker.number.float({ min: -0.5, max: 0.5 }) * range;
 }
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
