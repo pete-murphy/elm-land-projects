@@ -2,7 +2,8 @@ module Pages.Posts.PostId_ exposing (Model, Msg, page)
 
 import Accessibility as Html exposing (Html)
 import Api.Author as Author exposing (Author(..))
-import Api.Image exposing (Image, ImageId)
+import Api.Image exposing (Image)
+import Api.ImageId exposing (ImageId)
 import Api.Post exposing (Post)
 import Api.PostId as PostId exposing (PostId)
 import Components.PostList as PostList
@@ -37,7 +38,7 @@ page shared route =
 
 toLayout : Model -> Layouts.Layout Msg
 toLayout model =
-    Layouts.WithHeader {}
+    Layouts.Common {}
 
 
 
@@ -72,8 +73,7 @@ type Action
 
 
 type Msg
-    = RunAction Action
-    | GotPost Post (List Action)
+    = GotPost Post (List Action)
     | GotImage Image
     | GotErrorFor Action Http.Error
     | NoOp
@@ -93,22 +93,19 @@ runAction action model =
     case action of
         FetchPost postId toNextActions ->
             ( { model | post = toLoading model.post }
-            , Effect.fetchPostById postId
+            , Effect.getPostById postId
                 (handleSuccessWith (\post -> GotPost post (toNextActions post)))
             )
 
         FetchImage imageId ->
             ( model
-            , Effect.fetchImageById imageId (handleSuccessWith GotImage)
+            , Effect.getImageById imageId (handleSuccessWith GotImage)
             )
 
 
 update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
-        RunAction action ->
-            runAction action model
-
         GotImage image ->
             ( { model | images = image :: model.images }
             , Effect.none

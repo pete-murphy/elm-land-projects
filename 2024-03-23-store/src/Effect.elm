@@ -6,7 +6,7 @@ module Effect exposing
     , pushRoutePath, replaceRoutePath
     , loadExternalUrl, back
     , map, toCmd
-    , fetchAuthors, fetchImageById, fetchPostById, fetchPosts
+    , getAuthorById, getAuthors, getImageById, getPostById, getPosts
     )
 
 {-|
@@ -24,8 +24,10 @@ module Effect exposing
 
 -}
 
-import Api.Author as Author
-import Api.Image as Image
+import Api.Author as Author exposing (Author)
+import Api.AuthorId exposing (AuthorId)
+import Api.Image as Image exposing (Image)
+import Api.ImageId exposing (ImageId)
 import Api.Post as Post exposing (Post)
 import Api.PostId exposing (PostId)
 import Browser.Navigation
@@ -92,25 +94,30 @@ sendMsg msg =
 -- HTTP
 
 
-fetchPosts : (Result Http.Error (List Post) -> msg) -> Effect msg
-fetchPosts toMsg =
+getPosts : (Result Http.Error (List Post) -> msg) -> Effect msg
+getPosts toMsg =
     Post.getAll toMsg
         |> SendCmd
 
 
-fetchPostById : PostId -> (Result Http.Error Post -> msg) -> Effect msg
-fetchPostById postId toMsg =
+getPostById : PostId -> (Result Http.Error Post -> msg) -> Effect msg
+getPostById postId toMsg =
     Post.getById postId toMsg
         |> SendCmd
 
 
-fetchAuthors : (Result Http.Error Author.GetAll -> msg) -> Effect msg
-fetchAuthors toMsg =
+getAuthors : (Result Http.Error (List (Author Author.Preview)) -> msg) -> Effect msg
+getAuthors toMsg =
     Author.getAll toMsg |> SendCmd
 
 
-fetchImageById : Image.ImageId -> (Result Http.Error Image.Image -> msg) -> Effect msg
-fetchImageById imageId toMsg =
+getAuthorById : AuthorId -> (Result Http.Error (Author Author.Full) -> msg) -> Effect msg
+getAuthorById authorId toMsg =
+    Author.getById authorId toMsg |> SendCmd
+
+
+getImageById : ImageId -> (Result Http.Error Image -> msg) -> Effect msg
+getImageById imageId toMsg =
     Image.getById (Debug.log "imageId" imageId) toMsg
         |> SendCmd
 

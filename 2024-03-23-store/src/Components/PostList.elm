@@ -1,5 +1,6 @@
 module Components.PostList exposing (view)
 
+import Api.Data
 import Api.Post exposing (Post)
 import Api.PostId as PostId
 import CustomElements
@@ -8,9 +9,10 @@ import Html.Attributes as Attributes
 import Route.Path
 
 
-view : List Post -> Html msg
+view : List (Api.Data.Data Post) -> Html msg
 view posts =
     let
+        viewPost : Post -> Html msg
         viewPost post =
             Html.li
                 []
@@ -34,4 +36,4 @@ view posts =
                 ]
     in
     Html.ul [ Attributes.class "gap-2 dg dg-min-cols-1 dg-col-min-w-[48ch] dg-max-cols-4" ]
-        (posts |> List.map viewPost)
+        (posts |> List.map (Api.Data.view_ viewPost))

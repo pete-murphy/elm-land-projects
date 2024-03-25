@@ -1,11 +1,16 @@
 module Api.Author exposing
-    ( Author(..)
-    , GetAll
-    , GetById
+    ( Author
+    , Full
+    , Preview
+    , bio
     , decoder
     , exampleGetAll
     , getAll
     , getById
+    , id
+    , name
+    , postIds
+    , posts
     )
 
 import Api.AuthorId as AuthorId exposing (AuthorId)
@@ -13,7 +18,6 @@ import Api.Post as Post exposing (Post)
 import Api.PostId as PostId exposing (PostId)
 import Http
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Extra
 import Json.Decode.Pipeline as Pipeline
 
 
@@ -28,55 +32,83 @@ type alias Internals =
     }
 
 
-type alias GetAll =
-    List (Author (List PostId))
+type Preview
+    = Preview (List PostId)
 
 
-type alias GetById =
-    Author (List Post)
+type Full
+    = Full (List Post)
+
+
+
+-- ACCESSORS
+
+
+postIds : Author Preview -> List PostId
+postIds (Author _ (Preview postIds_)) =
+    postIds_
+
+
+posts : Author Full -> List Post
+posts (Author _ (Full posts_)) =
+    posts_
+
+
+id : Author a -> AuthorId
+id (Author internals _) =
+    internals.id
+
+
+name : Author a -> String
+name (Author internals _) =
+    internals.name
+
+
+bio : Author a -> String
+bio (Author internals _) =
+    internals.bio
 
 
 
 -- DECODER
 
 
-decoder : Decoder Internals
+decoder : Decoder (a -> Author a)
 decoder =
-    Decode.succeed Internals
-        |> Pipeline.required "id" AuthorId.decoder
-        |> Pipeline.required "name" Decode.string
-        |> Pipeline.required "bio" Decode.string
-
-
-decoderGetAll : Decoder GetAll
-decoderGetAll =
-    Decode.list
-        (Decode.succeed Author
-            |> Json.Decode.Extra.andMap decoder
-            |> Pipeline.required "postIds" (Decode.list PostId.decoder)
-        )
-
-
-decoderGetById : Decoder GetById
-decoderGetById =
+    let
+        internalsDecoder =
+            Decode.succeed Internals
+                |> Pipeline.required "id" AuthorId.decoder
+                |> Pipeline.required "name" Decode.string
+                |> Pipeline.required "bio" Decode.string
+    in
     Decode.succeed Author
-        |> Json.Decode.Extra.andMap decoder
-        |> Pipeline.required "posts" (Decode.list Post.decoder)
+        |> Pipeline.custom internalsDecoder
 
 
 
 -- HTTP
 
 
-getAll : (Result Http.Error GetAll -> msg) -> Cmd msg
+getAll : (Result Http.Error (List (Author Preview)) -> msg) -> Cmd msg
 getAll toMsg =
     Http.get
         { url = "/api/authors"
-        , expect = Http.expectJson toMsg decoderGetAll
+        , expect =
+            Http.expectJson toMsg
+                (Decode.list
+                    (decoder
+                        |> Pipeline.required "postIds"
+                            (Decode.list PostId.decoder |> Decode.map Preview)
+                    )
+                )
         }
 
 
-exampleGetAll : GetAll
+
+-- exampleGetAll : GetAll
+
+
 exampleGetAll =
     """
 [
@@ -94,13 +126,15 @@ exampleGetAll =
     }
 ]
 """
-        |> Decode.decodeString decoderGetAll
+        |> Decode.decodeString (Decode.list (decoder |> Pipeline.required "postIds" (Decode.list PostId.decoder)))
         |> Result.withDefault []
 
 
-getById : (Result Http.Error (Author (List Post)) -> msg) -> Cmd msg
-getById toMsg =
+getById : AuthorId -> (Result Http.Error (Author Full) -> msg) -> Cmd msg
+getById authorId toMsg =
     Http.get
-        { url = "/api/authors"
-        , expect = Http.expectJson toMsg decoderGetById
+        { url = "/api/authors" ++ AuthorId.toString authorId
+        , expect =
+            Http.expectJson toMsg
+                (decoder |> Pipeline.required "posts" (Decode.list Post.decoder |> Decode.map Full))
         }

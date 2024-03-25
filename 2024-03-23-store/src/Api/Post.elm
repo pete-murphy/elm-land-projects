@@ -7,7 +7,7 @@ module Api.Post exposing
     )
 
 import Api.AuthorId as AuthorId exposing (AuthorId)
-import Api.Image as Image exposing (ImageId)
+import Api.ImageId as ImageId exposing (ImageId)
 import Api.PostId as PostId exposing (PostId)
 import Http
 import Iso8601
@@ -40,7 +40,7 @@ decoder =
         |> Pipeline.required "authorName" Decode.string
         |> Pipeline.required "content" Decode.string
         |> Pipeline.required "createdAt" Iso8601.decoder
-        |> Pipeline.required "imageIds" (Decode.list Image.decoderImageId)
+        |> Pipeline.required "imageIds" (Decode.list ImageId.decoder)
 
 
 

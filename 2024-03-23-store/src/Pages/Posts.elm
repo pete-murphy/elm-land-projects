@@ -28,7 +28,7 @@ page shared route =
 
 toLayout : Model -> Layouts.Layout Msg
 toLayout model =
-    Layouts.WithHeader {}
+    Layouts.Common {}
 
 
 
@@ -43,7 +43,7 @@ type alias Model =
 init : () -> ( Model, Effect Msg )
 init () =
     ( { posts = Loading }
-    , Effect.fetchPosts (Result.Extra.unpack (GotErrorFor FetchPosts) GotPosts)
+    , Effect.getPosts (Result.Extra.unpack (GotErrorFor FetchPosts) GotPosts)
     )
 
 
@@ -76,7 +76,7 @@ runAction action model =
     case action of
         FetchPosts ->
             ( { model | posts = toLoading model.posts }
-            , Effect.fetchPosts (handleSuccessWith GotPosts)
+            , Effect.getPosts (handleSuccessWith GotPosts)
             )
 
 
@@ -119,8 +119,5 @@ view : Model -> View Msg
 view model =
     { title = "Posts"
     , body =
-        [ model.posts
-            |> RemoteData.Extra.viewWebData
-                PostList.view
-        ]
+        []
     }

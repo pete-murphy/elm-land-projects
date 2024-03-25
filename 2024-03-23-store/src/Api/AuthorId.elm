@@ -1,10 +1,13 @@
 module Api.AuthorId exposing
     ( AuthorId
+    , Dict
     , decoder
+    , dict
     , toString
     )
 
 import Json.Decode as Decode
+import OpaqueDict exposing (OpaqueDict)
 
 
 type AuthorId
@@ -19,3 +22,11 @@ decoder =
 toString : AuthorId -> String
 toString (AuthorId id) =
     id
+
+
+type alias Dict a =
+    OpaqueDict AuthorId String a
+
+
+dict =
+    OpaqueDict.make toString AuthorId

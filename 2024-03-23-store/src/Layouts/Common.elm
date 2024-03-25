@@ -1,4 +1,4 @@
-module Layouts.WithHeader exposing (Model, Msg, Props, layout)
+module Layouts.Common exposing (Model, Msg, Props, layout)
 
 import CustomElements
 import Effect exposing (Effect)
@@ -43,17 +43,13 @@ init _ =
 -- UPDATE
 
 
-type Msg
-    = ReplaceMe
+type alias Msg =
+    Never
 
 
 update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
-    case msg of
-        ReplaceMe ->
-            ( model
-            , Effect.none
-            )
+    never msg
 
 
 subscriptions : Model -> Sub Msg
