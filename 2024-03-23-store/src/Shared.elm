@@ -12,13 +12,18 @@ module Shared exposing
 
 -}
 
+import Api.Author as Author
+import Api.AuthorId as AuthorId
+import Api.Data
+import Api.ImageId as ImageId
+import Api.PostId as PostId
 import Effect exposing (Effect)
 import Json.Decode
 import Route exposing (Route)
-import Route.Path
 import Shared.Model
 import Shared.Msg
 import Store
+import Store.Msg
 
 
 
@@ -63,6 +68,71 @@ update route msg model =
         Shared.Msg.NoOp ->
             ( model
             , Effect.none
+            )
+
+        Shared.Msg.GotActionMsg actionMsg ->
+            let
+                ( nextStore_, effect ) =
+                    let
+                        store =
+                            model.store
+                    in
+                    case actionMsg of
+                        Store.Msg.GotActions actions ->
+                            Effect.runActions store actions
+
+                        Store.Msg.GotErrorFor action error ->
+                            -- TODO: Save error
+                            ( store, Effect.none )
+
+                        Store.Msg.GotAuthor author nextActions ->
+                            let
+                                nextStore =
+                                    { store | authorsById = AuthorId.dict.insert (Author.id author) (Api.Data.succeed author) store.authorsById }
+                            in
+                            Effect.runActions nextStore nextActions
+
+                        Store.Msg.GotAuthors authors ->
+                            let
+                                nextStore =
+                                    { store | authorsList = Api.Data.succeed authors }
+                            in
+                            ( nextStore, Effect.none )
+
+                        Store.Msg.GotPost post nextActions ->
+                            let
+                                nextStore =
+                                    { store | postsById = PostId.dict.insert post.id (Api.Data.succeed post) store.postsById }
+                            in
+                            Effect.runActions nextStore nextActions
+
+                        Store.Msg.GotPosts posts ->
+                            let
+                                nextStore =
+                                    { store
+                                        | postsList = Api.Data.succeed (posts |> List.map .id)
+                                        , postsById = posts |> List.map (\post -> ( post.id, Api.Data.succeed post )) |> PostId.dict.fromList
+                                    }
+                            in
+                            ( nextStore, Effect.none )
+
+                        Store.Msg.GotImage image ->
+                            let
+                                nextStore =
+                                    { store | imagesById = ImageId.dict.insert image.id (Api.Data.succeed image) store.imagesById }
+                            in
+                            ( nextStore, Effect.none )
+
+                        Store.Msg.NoOp ->
+                            ( store, Effect.none )
+
+                -- let
+                --     ( nextStore, effect ) =
+                --         Store.Action.update actionMsg model.store
+            in
+            ( { model | store = nextStore_ }
+            , effect
+                |> Effect.map Shared.Msg.GotActionMsg
             )
 
 

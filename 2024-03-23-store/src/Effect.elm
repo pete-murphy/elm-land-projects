@@ -6,7 +6,7 @@ module Effect exposing
     , pushRoutePath, replaceRoutePath
     , loadExternalUrl, back
     , map, toCmd
-    , getAuthorById, getAuthors, getImageById, getPostById, getPosts
+    , getAuthorById, getAuthors, getImageById, getPostById, getPosts, getPostsAndAuthors, runActions
     )
 
 {-|
@@ -25,19 +25,23 @@ module Effect exposing
 -}
 
 import Api.Author as Author exposing (Author)
-import Api.AuthorId exposing (AuthorId)
+import Api.AuthorId as AuthorId exposing (AuthorId)
+import Api.Data
 import Api.Image as Image exposing (Image)
-import Api.ImageId exposing (ImageId)
+import Api.ImageId as ImageId exposing (ImageId)
 import Api.Post as Post exposing (Post)
-import Api.PostId exposing (PostId)
+import Api.PostId as PostId exposing (PostId)
 import Browser.Navigation
 import Dict exposing (Dict)
 import Http
-import Json.Decode
-import Route exposing (Route)
+import Result.Extra
+import Route
 import Route.Path
 import Shared.Model
 import Shared.Msg
+import Store exposing (Store)
+import Store.Action
+import Store.Msg
 import Task
 import Url exposing (Url)
 
@@ -60,7 +64,7 @@ type Effect msg
 -- BASICS
 
 
-{-| Don't send any effect.
+{-| Don't send any
 -}
 none : Effect msg
 none =
@@ -81,7 +85,7 @@ sendCmd =
     SendCmd
 
 
-{-| Send a message as an effect. Useful when emitting events from UI components.
+{-| Send a message as an Useful when emitting events from UI components.
 -}
 sendMsg : msg -> Effect msg
 sendMsg msg =
@@ -123,6 +127,24 @@ getImageById imageId toMsg =
 
 
 
+-- RUN ACTIONS (TODO: Remove the above functions)
+
+
+getPostsAndAuthors : Effect msg
+getPostsAndAuthors =
+    Store.Msg.GotActions [ Store.Action.GetPosts, Store.Action.GetAuthors ]
+        |> Shared.Msg.GotActionMsg
+        |> SendSharedMsg
+
+
+getPostByIdAndImages : PostId -> Effect msg
+getPostByIdAndImages postId =
+    Store.Msg.GotActions [ Store.Action.GetPostById postId (.imageIds >> List.map Store.Action.GetImageById) ]
+        |> Shared.Msg.GotActionMsg
+        |> SendSharedMsg
+
+
+
 -- ROUTING
 
 
@@ -138,7 +160,7 @@ pushRoute route =
     PushUrl (Route.toString route)
 
 
-{-| Same as `Effect.pushRoute`, but without `query` or `hash` support
+{-| Same as `pushRoute`, but without `query` or `hash` support
 -}
 pushRoutePath : Route.Path.Path -> Effect msg
 pushRoutePath path =
@@ -158,7 +180,7 @@ replaceRoute route =
     ReplaceUrl (Route.toString route)
 
 
-{-| Same as `Effect.replaceRoute`, but without `query` or `hash` support
+{-| Same as `replaceRoute`, but without `query` or `hash` support
 -}
 replaceRoutePath : Route.Path.Path -> Effect msg
 replaceRoutePath path =
@@ -177,6 +199,125 @@ loadExternalUrl =
 back : Effect msg
 back =
     Back
+
+
+
+-- ACTIONS
+
+
+runActions : Store -> List Store.Action.Action -> ( Store, Effect Store.Msg.Msg )
+runActions store =
+    List.foldl
+        (\action ( previousModel, previousEffects ) ->
+            let
+                ( nextModel, nextEffect ) =
+                    runAction action previousModel
+            in
+            ( nextModel, nextEffect :: previousEffects )
+        )
+        ( store, [] )
+        >> Tuple.mapSecond batch
+
+
+runAction action store =
+    let
+        onSuccess =
+            Result.Extra.unpack (Store.Msg.GotErrorFor action)
+    in
+    case action of
+        Store.Action.GetPostById postId toNextActions ->
+            -- Stale while revalidate
+            ( { store
+                | postsById =
+                    store.postsById
+                        |> PostId.dict.update postId
+                            (Maybe.withDefault Api.Data.notAsked >> Api.Data.toLoading >> Just)
+              }
+            , getPostById postId (onSuccess (\post -> Store.Msg.GotPost post (toNextActions post)))
+            )
+
+        Store.Action.GetImageById imageId ->
+            -- Cache first
+            let
+                dataImage =
+                    ImageId.get imageId store.imagesById |> Api.Data.unwrap
+            in
+            case ( dataImage.isLoading, dataImage.value ) of
+                ( True, _ ) ->
+                    ( store, none )
+
+                ( False, Api.Data.Empty ) ->
+                    ( { store
+                        | imagesById =
+                            ImageId.dict.insert imageId
+                                Api.Data.loading
+                                -- Should 👆 this be 👇 this?
+                                --
+                                -- ImageId.dict.update imageId
+                                --    (Maybe.withDefault Api.Data.notAsked >> Api.Data.toLoading >> Just)
+                                --
+                                -- The latter is more general, but in this case we know the
+                                -- cache at this ImageId is Empty
+                                store.imagesById
+                      }
+                    , getImageById imageId (onSuccess Store.Msg.GotImage)
+                    )
+
+                ( False, Api.Data.HttpError _ ) ->
+                    -- TODO: Should we retry in error case? If so, we probably want to do the same
+                    -- as the Empty case above (but with a retry counter(?)).
+                    -- Or maybe, if we have a 401/403 we should try to refresh credentials
+                    -- and _then_ retry the request.
+                    --
+                    -- This would be complicated to express, and we'd want to reuse that logic
+                    -- probably in many places (so would need to abstract over the resource type).
+                    --
+                    -- 💭 A retry combinator might be able to address both those issues.
+                    -- But what would the type be?
+                    --
+                    -- retry : (a -> (a, Effect b)) -> a -> (a, Effect b)
+                    ( store, none )
+
+                ( False, Api.Data.Success image ) ->
+                    -- ( store_, sendMsg (GotImage image) )
+                    -- Should 👆 this be 👇 this?
+                    ( { store
+                        | imagesById =
+                            store.imagesById
+                                |> ImageId.dict.insert imageId (Api.Data.succeed image)
+                      }
+                    , none
+                    )
+
+        Store.Action.GetAuthors ->
+            -- Stale while revalidate
+            ( { store
+                -- Not doing anything with authorsById
+                | authorsList =
+                    store.authorsList |> Api.Data.toLoading
+              }
+            , getAuthors (onSuccess Store.Msg.GotAuthors)
+            )
+
+        Store.Action.GetAuthorById authorId toNextActions ->
+            -- Stale while revalidate
+            ( { store
+                | authorsById =
+                    store.authorsById
+                        |> AuthorId.dict.update authorId
+                            (Maybe.withDefault Api.Data.notAsked >> Api.Data.toLoading >> Just)
+              }
+            , getAuthorById authorId (onSuccess (\author -> Store.Msg.GotAuthor author (toNextActions author)))
+            )
+
+        Store.Action.GetPosts ->
+            -- Stale while revalidate
+            ( { store
+                | postsList =
+                    store.postsList |> Api.Data.toLoading
+              }
+            , getPosts (onSuccess Store.Msg.GotPosts)
+            )
 
 
 

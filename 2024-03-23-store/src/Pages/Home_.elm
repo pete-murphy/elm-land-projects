@@ -53,7 +53,7 @@ type alias Model =
 init : () -> ( Model, Effect Msg )
 init () =
     ( ()
-    , Debug.todo "send actions for fetching posts and authors"
+    , Effect.getPostsAndAuthors
     )
 
 

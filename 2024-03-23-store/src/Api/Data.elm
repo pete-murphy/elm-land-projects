@@ -12,6 +12,7 @@ module Api.Data exposing
     , succeed
     , toLoading
     , toMaybe
+    , traverseList
     , unwrap
     , value
     , view_
@@ -102,6 +103,30 @@ map f (Data internals) =
             Success a ->
                 { value = Success (f a), isLoading = internals.isLoading }
         )
+
+
+traverseList : (a -> Data b) -> List a -> Data (List b)
+traverseList f =
+    List.foldl
+        (\a (Data acc) ->
+            let
+                data =
+                    f a
+            in
+            case ( value data, acc.value ) of
+                ( Success b, Success bs ) ->
+                    Data { value = Success (b :: bs), isLoading = acc.isLoading || isLoading data }
+
+                ( HttpError error, _ ) ->
+                    fail error
+
+                ( _, HttpError error ) ->
+                    fail error
+
+                ( _, _ ) ->
+                    Data { value = Empty, isLoading = acc.isLoading || isLoading data }
+        )
+        (succeed [])
 
 
 

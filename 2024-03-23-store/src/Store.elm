@@ -1,7 +1,5 @@
 module Store exposing (..)
 
--- import Effect
-
 import Api.Author as Author exposing (Author)
 import Api.AuthorId as AuthorId exposing (AuthorId)
 import Api.Data
@@ -12,6 +10,8 @@ import Api.PostId as PostId exposing (PostId)
 import Http
 import RemoteData exposing (RemoteData(..))
 import Result.Extra
+import Store.Action
+import Store.Msg
 
 
 type alias Store =
@@ -32,3 +32,7 @@ init =
     , authorsById = AuthorId.dict.empty
     , imagesById = ImageId.dict.empty
     }
+
+
+
+-- update msg store =

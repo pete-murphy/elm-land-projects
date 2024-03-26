@@ -21,6 +21,7 @@ make :
         , foldl : (k -> a -> b -> b) -> b -> OpaqueDict k comparable a -> b
         , remove : k -> OpaqueDict k comparable a -> OpaqueDict k comparable a
         , update : k -> (Maybe v -> Maybe v) -> OpaqueDict k comparable v -> OpaqueDict k comparable v
+        , fromList : List ( k, v ) -> OpaqueDict k comparable v
         }
 make to from =
     { empty = OpaqueDict Dict.empty
@@ -30,4 +31,5 @@ make to from =
     , get = \key (OpaqueDict dict) -> Dict.get (to key) dict
     , remove = \key (OpaqueDict dict) -> OpaqueDict (Dict.remove (to key) dict)
     , update = \key f (OpaqueDict dict) -> OpaqueDict (Dict.update (to key) f dict)
+    , fromList = \list -> OpaqueDict (Dict.fromList (List.map (\( key, value ) -> ( to key, value )) list))
     }
