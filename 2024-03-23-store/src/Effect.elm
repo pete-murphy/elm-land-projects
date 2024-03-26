@@ -6,7 +6,7 @@ module Effect exposing
     , pushRoutePath, replaceRoutePath
     , loadExternalUrl, back
     , map, toCmd
-    , getAuthorById, getAuthors, getImageById, getPostById, getPosts, getPostsAndAuthors, runActions
+    , getAuthorById, getAuthors, getImageById, getPostById, getPostByIdAndImages, getPosts, getPostsAndAuthors, runActions
     )
 
 {-|

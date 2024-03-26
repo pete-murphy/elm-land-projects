@@ -1,23 +1,18 @@
 module Pages.Posts.PostId_ exposing (Model, Msg, page)
 
 import Accessibility as Html exposing (Html)
-import Api.Author as Author exposing (Author(..))
+import Api.Author exposing (Author(..))
+import Api.Data
 import Api.Image exposing (Image)
-import Api.ImageId exposing (ImageId)
+import Api.ImageId as ImageId
 import Api.Post exposing (Post)
 import Api.PostId as PostId exposing (PostId)
-import Components.PostList as PostList
 import CustomElements
 import Effect exposing (Effect)
 import Html.Attributes as Attributes
-import Html.Events
-import Http
-import Http.Extra
 import Layouts
-import Maybe.Extra
 import Page exposing (Page)
-import RemoteData exposing (RemoteData(..), WebData)
-import RemoteData.Extra
+import RemoteData exposing (RemoteData(..))
 import Result.Extra
 import Route exposing (Route)
 import Route.Path
@@ -27,11 +22,15 @@ import View exposing (View)
 
 page : Shared.Model -> Route { postId : String } -> Page Model Msg
 page shared route =
+    let
+        postId =
+            PostId.fromRoute route
+    in
     Page.new
-        { init = init (PostId.fromRoute route)
+        { init = init postId
         , update = update
         , subscriptions = subscriptions
-        , view = view
+        , view = view shared postId
         }
         |> Page.withLayout toLayout
 
@@ -46,98 +45,27 @@ toLayout model =
 
 
 type alias Model =
-    { post : WebData Post
-    , images : List Image
-    }
+    ()
 
 
 init : PostId -> () -> ( Model, Effect Msg )
 init postId () =
-    let
-        initialModel =
-            { post = NotAsked
-            , images = []
-            }
-    in
-    initialModel
-        |> runAction (FetchPost postId (\post -> post.imageIds |> List.map FetchImage))
+    ( ()
+    , Effect.getPostByIdAndImages postId
+    )
 
 
 
 -- UPDATE
 
 
-type Action
-    = FetchPost PostId (Post -> List Action)
-    | FetchImage ImageId
-
-
 type Msg
-    = GotPost Post (List Action)
-    | GotImage Image
-    | GotErrorFor Action Http.Error
-    | NoOp
-
-
-toLoading : WebData a -> WebData a
-toLoading =
-    RemoteData.unwrap Loading Success
-
-
-runAction : Action -> Model -> ( Model, Effect Msg )
-runAction action model =
-    let
-        handleSuccessWith =
-            Result.Extra.unpack (GotErrorFor action)
-    in
-    case action of
-        FetchPost postId toNextActions ->
-            ( { model | post = toLoading model.post }
-            , Effect.getPostById postId
-                (handleSuccessWith (\post -> GotPost post (toNextActions post)))
-            )
-
-        FetchImage imageId ->
-            ( model
-            , Effect.getImageById imageId (handleSuccessWith GotImage)
-            )
+    = NoOp
 
 
 update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
-        GotImage image ->
-            ( { model | images = image :: model.images }
-            , Effect.none
-            )
-
-        GotPost post nextActions ->
-            nextActions
-                |> List.foldl
-                    (\action ( previousModel, previousEffects ) ->
-                        let
-                            ( nextModel, nextEffect ) =
-                                runAction action previousModel
-                        in
-                        ( nextModel, nextEffect :: previousEffects )
-                    )
-                    ( { model | post = Success post }, [] )
-                |> Tuple.mapSecond Effect.batch
-
-        GotErrorFor (FetchPost _ _) error ->
-            ( { model | post = Failure error }
-            , Effect.none
-            )
-
-        GotErrorFor (FetchImage _) error ->
-            let
-                _ =
-                    Debug.log "GotErrorFor FetchImage" error
-            in
-            ( model
-            , Effect.none
-            )
-
         NoOp ->
             ( model
             , Effect.none
@@ -157,59 +85,61 @@ subscriptions model =
 -- VIEW
 
 
-view : Model -> View Msg
-view model =
+view : Shared.Model -> PostId -> Model -> View Msg
+view shared postId model =
     let
-        title =
-            case model.post of
-                NotAsked ->
-                    "Not asked"
+        post =
+            shared.store.postsById
+                |> Api.Data.getWith PostId.dict.get postId
 
-                Loading ->
+        title =
+            case post |> Api.Data.value of
+                Api.Data.Empty ->
                     "Loading..."
 
-                Failure _ ->
+                Api.Data.HttpError _ ->
                     "Something went wrong!"
 
-                Success post ->
-                    post.title
+                Api.Data.Success post_ ->
+                    post_.title
+
+        images =
+            post
+                |> Api.Data.map .imageIds
+                |> Api.Data.withDefault []
+                |> Api.Data.traverseList
+                    (\imageId -> shared.store.imagesById |> Api.Data.getWith ImageId.dict.get imageId)
     in
     { title = title
     , body =
-        case model.post of
-            NotAsked ->
-                []
-
-            Loading ->
-                []
-
-            Failure _ ->
-                []
-
-            Success post ->
-                viewPost post model.images
+        [ Api.Data.view_ (viewPost images) post ]
     }
 
 
-viewPost : Post -> List Image -> List (Html Msg)
-viewPost post images =
-    [ Html.div [ Attributes.class "px-4 flex gap-4 items-baseline" ]
-        [ Html.span [] [ Html.text post.authorName ]
-        , Html.span [ Attributes.class "flex gap-2 text-sm text-slate-500" ]
-            [ Html.span [] [ Html.text "📆" ]
-            , Html.span [ Attributes.class "line-clamp-1" ] [ CustomElements.relativeTime post.createdAt ]
+viewPost : Api.Data.Data (List Image) -> Post -> Html Msg
+viewPost dataImages post =
+    Html.div []
+        [ Html.div [ Attributes.class "px-4 flex gap-4 items-baseline" ]
+            [ Html.span [] [ Html.text post.authorName ]
+            , Html.span [ Attributes.class "flex gap-2 text-sm text-slate-500" ]
+                [ Html.span [] [ Html.text "📆" ]
+                , Html.span [ Attributes.class "line-clamp-1" ] [ CustomElements.relativeTime post.createdAt ]
+                ]
             ]
-        ]
-    , Html.div [ Attributes.class "m-auto px-4 grid gap-2 max-w-prose" ]
-        (post.content
-            |> String.split "\n"
-            |> List.map (\line -> Html.p [] [ Html.text line ])
-        )
-    , Html.div []
-        (images
-            |> List.map
-                (\image ->
-                    Html.img "" [ Attributes.src image.url, Attributes.class "w-full" ]
+        , Html.div [ Attributes.class "m-auto px-4 grid gap-2 max-w-prose" ]
+            (post.content
+                |> String.split "\n"
+                |> List.map (\line -> Html.p [] [ Html.text line ])
+            )
+        , dataImages
+            |> Api.Data.view_
+                (\images ->
+                    Html.div []
+                        (images
+                            |> List.map
+                                (\image ->
+                                    Html.img "" [ Attributes.src image.url, Attributes.class "w-full" ]
+                                )
+                        )
                 )
-        )
-    ]
+        ]
