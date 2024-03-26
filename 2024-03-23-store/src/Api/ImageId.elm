@@ -38,6 +38,7 @@ type alias Dict a =
     OpaqueDict ImageId String a
 
 
+dict : OpaqueDict.Methods ImageId String a b
 dict =
     OpaqueDict.make toString ImageId
 

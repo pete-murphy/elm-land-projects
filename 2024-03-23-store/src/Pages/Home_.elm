@@ -2,23 +2,13 @@ module Pages.Home_ exposing (Model, Msg, page, view, viewAuthors, viewPosts)
 
 import Accessibility as Html exposing (Html)
 import Api.Author as Author exposing (Author(..))
-import Api.AuthorId as AuthorId
 import Api.Data
 import Api.Post exposing (Post)
-import Api.PostId as PostId
 import Components.PostList as PostList
-import CustomElements
 import Effect exposing (Effect)
 import Html.Attributes as Attributes
-import Html.Events
-import Http
-import Http.Extra
 import Layouts
-import Maybe.Extra
 import Page exposing (Page)
-import RemoteData exposing (RemoteData(..), WebData)
-import RemoteData.Extra
-import Result.Extra
 import Route exposing (Route)
 import Route.Path
 import Shared
@@ -89,14 +79,7 @@ view : Store -> Model -> View Msg
 view store model =
     let
         posts =
-            store.postsList
-                |> Api.Data.map
-                    (List.map
-                        (\postId ->
-                            store.postsById
-                                |> Api.Data.getWith PostId.dict.get postId
-                        )
-                    )
+            Store.posts store
     in
     { title = "Home"
     , body =
@@ -106,19 +89,20 @@ view store model =
     }
 
 
-viewPosts : Api.Data.Data (List (Api.Data.Data Post)) -> Html msg
+viewPosts : Api.Data.Data (List Post) -> Html msg
 viewPosts webDataPosts =
     Html.section [ Attributes.class "grid gap-2" ]
-        [ Html.h2
+        (Html.h2
             [ Attributes.class "px-4 text-2xl font-bold" ]
             [ Html.a [ Route.Path.href Route.Path.Posts ] [ Html.text "Posts" ] ]
-        , webDataPosts
-            |> Api.Data.view_ PostList.view
-        ]
+            :: (webDataPosts
+                    |> Api.Data.view_ PostList.view
+               )
+        )
 
 
-viewAuthors : Api.Data.Data (List (Api.Data.Data Post)) -> Api.Data.Data (List (Author Author.Preview)) -> Html msg
-viewAuthors webDataPosts webDataAuthors =
+viewAuthors : Api.Data.Data (List Post) -> Api.Data.Data (List (Author Author.Preview)) -> Html msg
+viewAuthors dataPosts dataAuthors =
     let
         viewAuthor author =
             let
@@ -126,10 +110,8 @@ viewAuthors webDataPosts webDataAuthors =
                     Author.postIds author
 
                 imageCount =
-                    webDataPosts
+                    dataPosts
                         |> Api.Data.withDefault []
-                        |> List.filterMap Api.Data.toMaybe
-                        |> List.filter (\post -> List.member post.id postIds)
                         |> List.concatMap (\post -> post.imageIds)
                         |> List.length
             in
@@ -148,14 +130,15 @@ viewAuthors webDataPosts webDataAuthors =
                 ]
     in
     Html.section [ Attributes.class "grid gap-2" ]
-        [ Html.h2 [ Attributes.class "px-4 text-2xl font-bold" ] [ Html.text "Authors" ]
-        , webDataAuthors
-            |> Api.Data.view_
-                (\authors ->
-                    Html.ul [ Attributes.class "dg dg-col-gap-2 dg-min-cols-2" ]
-                        (authors |> List.map viewAuthor)
-                )
-        ]
+        (Html.h2 [ Attributes.class "px-4 text-2xl font-bold" ] [ Html.text "Authors" ]
+            :: (dataAuthors
+                    |> Api.Data.view_
+                        (\authors ->
+                            Html.ul [ Attributes.class "dg dg-col-gap-2 dg-min-cols-2" ]
+                                (authors |> List.map viewAuthor)
+                        )
+               )
+        )
 
 
 

@@ -1,6 +1,7 @@
 module Api.Data exposing
     ( Data
     , Value(..)
+    , concatMap
     , fail
     , fromResult
     , get
@@ -129,6 +130,22 @@ traverseList f =
         (succeed [])
 
 
+concatMap : (a -> Data b) -> Data a -> Data b
+concatMap f (Data data) =
+    -- TODO: Is this lawful? 🥴
+    (case data.value of
+        Success a ->
+            f a
+
+        HttpError err ->
+            fail err
+
+        Empty ->
+            notAsked
+    )
+        |> mapLoading (\_ -> data.isLoading)
+
+
 
 -- DESTRUCTORS
 
@@ -186,24 +203,28 @@ get =
 -- HTML
 
 
-view_ : (a -> Html msg) -> Data a -> Html msg
+view_ : (a -> Html msg) -> Data a -> List (Html msg)
 view_ toHtml (Data data) =
     case ( data.value, data.isLoading ) of
         ( Success a, _ ) ->
-            toHtml a
+            (if data.isLoading then
+                [ Html.text "Loading..." ]
+
+             else
+                []
+            )
+                ++ [ toHtml a ]
 
         ( _, True ) ->
-            Html.text "Loading"
+            [ Html.text "Loading..." ]
 
         ( Empty, _ ) ->
-            Html.text "Not Asked"
+            [ Html.text "Not Asked" ]
 
         ( HttpError error, _ ) ->
             case Http.Extra.errorToMessage error of
                 { title, details } ->
-                    Html.div []
-                        (Maybe.Extra.values
-                            [ Just (Html.h2 [] [ Html.text title ])
-                            , details |> Maybe.map (\m -> Html.pre [] [ Html.text m ])
-                            ]
-                        )
+                    Maybe.Extra.values
+                        [ Just (Html.h2 [] [ Html.text title ])
+                        , details |> Maybe.map (\m -> Html.pre [] [ Html.text m ])
+                        ]

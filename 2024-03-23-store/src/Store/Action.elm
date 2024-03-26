@@ -5,7 +5,6 @@ import Api.AuthorId exposing (AuthorId)
 import Api.ImageId exposing (ImageId)
 import Api.Post exposing (Post)
 import Api.PostId exposing (PostId)
-import RemoteData exposing (RemoteData(..))
 
 
 type Action

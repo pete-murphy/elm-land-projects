@@ -6,7 +6,7 @@ module Effect exposing
     , pushRoutePath, replaceRoutePath
     , loadExternalUrl, back
     , map, toCmd
-    , getAuthorById, getAuthors, getImageById, getPostById, getPostByIdAndImages, getPosts, getPostsAndAuthors, runActions
+    , getImagesById, getPostByIdAndImages, getPosts, getPostsAndAuthors, runActions
     )
 
 {-|
@@ -24,16 +24,15 @@ module Effect exposing
 
 -}
 
-import Api.Author as Author exposing (Author)
-import Api.AuthorId as AuthorId exposing (AuthorId)
+import Api.Author as Author
+import Api.AuthorId as AuthorId
 import Api.Data
-import Api.Image as Image exposing (Image)
+import Api.Image as Image
 import Api.ImageId as ImageId exposing (ImageId)
-import Api.Post as Post exposing (Post)
+import Api.Post as Post
 import Api.PostId as PostId exposing (PostId)
 import Browser.Navigation
 import Dict exposing (Dict)
-import Http
 import Result.Extra
 import Route
 import Route.Path
@@ -92,56 +91,6 @@ sendMsg msg =
     Task.succeed msg
         |> Task.perform identity
         |> SendCmd
-
-
-
--- HTTP
-
-
-getPosts : (Result Http.Error (List Post) -> msg) -> Effect msg
-getPosts toMsg =
-    Post.getAll toMsg
-        |> SendCmd
-
-
-getPostById : PostId -> (Result Http.Error Post -> msg) -> Effect msg
-getPostById postId toMsg =
-    Post.getById postId toMsg
-        |> SendCmd
-
-
-getAuthors : (Result Http.Error (List (Author Author.Preview)) -> msg) -> Effect msg
-getAuthors toMsg =
-    Author.getAll toMsg |> SendCmd
-
-
-getAuthorById : AuthorId -> (Result Http.Error (Author Author.Full) -> msg) -> Effect msg
-getAuthorById authorId toMsg =
-    Author.getById authorId toMsg |> SendCmd
-
-
-getImageById : ImageId -> (Result Http.Error Image -> msg) -> Effect msg
-getImageById imageId toMsg =
-    Image.getById (Debug.log "imageId" imageId) toMsg
-        |> SendCmd
-
-
-
--- RUN ACTIONS (TODO: Remove the above functions)
-
-
-getPostsAndAuthors : Effect msg
-getPostsAndAuthors =
-    Store.Msg.GotActions [ Store.Action.GetPosts, Store.Action.GetAuthors ]
-        |> Shared.Msg.GotActionMsg
-        |> SendSharedMsg
-
-
-getPostByIdAndImages : PostId -> Effect msg
-getPostByIdAndImages postId =
-    Store.Msg.GotActions [ Store.Action.GetPostById postId (.imageIds >> List.map Store.Action.GetImageById) ]
-        |> Shared.Msg.GotActionMsg
-        |> SendSharedMsg
 
 
 
@@ -205,13 +154,44 @@ back =
 -- ACTIONS
 
 
+getPostsAndAuthors : Effect msg
+getPostsAndAuthors =
+    pushActions [ Store.Action.GetPosts, Store.Action.GetAuthors ]
+
+
+getPostByIdAndImages : PostId -> Effect msg
+getPostByIdAndImages postId =
+    pushActions [ Store.Action.GetPostById postId (.imageIds >> List.map Store.Action.GetImageById) ]
+
+
+getPosts : Effect msg
+getPosts =
+    pushActions [ Store.Action.GetPosts ]
+
+
+getImagesById : List ImageId -> Effect msg
+getImagesById imageIds =
+    pushActions (List.map Store.Action.GetImageById imageIds)
+
+
+
+-- ACTION INTERNALS
+
+
+pushActions : List Store.Action.Action -> Effect msg
+pushActions actions =
+    Store.Msg.GotActions actions
+        |> Shared.Msg.GotActionMsg
+        |> SendSharedMsg
+
+
 runActions : Store -> List Store.Action.Action -> ( Store, Effect Store.Msg.Msg )
 runActions store =
     List.foldl
-        (\action ( previousModel, previousEffects ) ->
+        (\action ( previousStore, previousEffects ) ->
             let
                 ( nextModel, nextEffect ) =
-                    runAction action previousModel
+                    runAction previousStore action
             in
             ( nextModel, nextEffect :: previousEffects )
         )
@@ -219,7 +199,8 @@ runActions store =
         >> Tuple.mapSecond batch
 
 
-runAction action store =
+runAction : Store -> Store.Action.Action -> ( Store, Effect Store.Msg.Msg )
+runAction store action =
     let
         onSuccess =
             Result.Extra.unpack (Store.Msg.GotErrorFor action)
@@ -233,7 +214,8 @@ runAction action store =
                         |> PostId.dict.update postId
                             (Maybe.withDefault Api.Data.notAsked >> Api.Data.toLoading >> Just)
               }
-            , getPostById postId (onSuccess (\post -> Store.Msg.GotPost post (toNextActions post)))
+            , Post.getById postId (onSuccess (\post -> Store.Msg.GotPost post (toNextActions post)))
+                |> SendCmd
             )
 
         Store.Action.GetImageById imageId ->
@@ -260,7 +242,8 @@ runAction action store =
                                 -- cache at this ImageId is Empty
                                 store.imagesById
                       }
-                    , getImageById imageId (onSuccess Store.Msg.GotImage)
+                    , Image.getById imageId (onSuccess Store.Msg.GotImage)
+                        |> SendCmd
                     )
 
                 ( False, Api.Data.HttpError _ ) ->
@@ -296,7 +279,8 @@ runAction action store =
                 | authorsList =
                     store.authorsList |> Api.Data.toLoading
               }
-            , getAuthors (onSuccess Store.Msg.GotAuthors)
+            , Author.getAll (onSuccess Store.Msg.GotAuthors)
+                |> SendCmd
             )
 
         Store.Action.GetAuthorById authorId toNextActions ->
@@ -307,7 +291,8 @@ runAction action store =
                         |> AuthorId.dict.update authorId
                             (Maybe.withDefault Api.Data.notAsked >> Api.Data.toLoading >> Just)
               }
-            , getAuthorById authorId (onSuccess (\author -> Store.Msg.GotAuthor author (toNextActions author)))
+            , Author.getById authorId (onSuccess (\author -> Store.Msg.GotAuthor author (toNextActions author)))
+                |> SendCmd
             )
 
         Store.Action.GetPosts ->
@@ -316,7 +301,8 @@ runAction action store =
                 | postsList =
                     store.postsList |> Api.Data.toLoading
               }
-            , getPosts (onSuccess Store.Msg.GotPosts)
+            , Post.getAll (onSuccess Store.Msg.GotPosts)
+                |> SendCmd
             )
 
 

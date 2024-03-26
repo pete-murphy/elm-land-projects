@@ -1,17 +1,12 @@
 module Store exposing (..)
 
 import Api.Author as Author exposing (Author)
-import Api.AuthorId as AuthorId exposing (AuthorId)
+import Api.AuthorId as AuthorId
 import Api.Data
-import Api.Image as Image exposing (Image)
-import Api.ImageId as ImageId exposing (ImageId)
+import Api.Image exposing (Image)
+import Api.ImageId as ImageId
 import Api.Post exposing (Post)
 import Api.PostId as PostId exposing (PostId)
-import Http
-import RemoteData exposing (RemoteData(..))
-import Result.Extra
-import Store.Action
-import Store.Msg
 
 
 type alias Store =
@@ -34,5 +29,13 @@ init =
     }
 
 
-
--- update msg store =
+posts : Store -> Api.Data.Data (List Post)
+posts store =
+    store.postsList
+        |> Api.Data.concatMap
+            (Api.Data.traverseList
+                (\postId ->
+                    store.postsById
+                        |> Api.Data.getWith PostId.dict.get postId
+                )
+            )

@@ -35,5 +35,6 @@ type alias Dict a =
     OpaqueDict PostId String a
 
 
+dict : OpaqueDict.Methods PostId String a b
 dict =
     OpaqueDict.make toString PostId

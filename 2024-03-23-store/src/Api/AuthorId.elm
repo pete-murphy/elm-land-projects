@@ -28,5 +28,6 @@ type alias Dict a =
     OpaqueDict AuthorId String a
 
 
+dict : OpaqueDict.Methods AuthorId String a b
 dict =
     OpaqueDict.make toString AuthorId
