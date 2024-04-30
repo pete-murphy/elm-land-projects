@@ -125,10 +125,6 @@ update route msg model =
 
                         Store.Msg.NoOp ->
                             ( store, Effect.none )
-
-                -- let
-                --     ( nextStore, effect ) =
-                --         Store.Action.update actionMsg model.store
             in
             ( { model | store = nextStore_ }
             , effect
