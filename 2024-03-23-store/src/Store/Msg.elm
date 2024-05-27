@@ -11,9 +11,9 @@ type Msg
     = GotActions (List Action)
     | GotErrorFor Action Http.Error
       --
-    | GotAuthor (Author Author.Full) (List Action)
+    | GotAuthor (Author Author.Full)
     | GotAuthors (List (Author Author.Preview))
-    | GotPost Post (List Action)
+    | GotPost Post
     | GotPosts (List Post)
     | GotImage Image
       --

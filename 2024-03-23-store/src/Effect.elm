@@ -161,7 +161,7 @@ getPostsAndAuthors =
 
 getPostByIdAndImages : PostId -> Effect msg
 getPostByIdAndImages postId =
-    pushActions [ Store.Action.GetPostById postId (.imageIds >> List.map Store.Action.GetImageById) ]
+    pushActions [ Store.Action.GetPostById postId ]
 
 
 getPosts : Effect msg
@@ -206,7 +206,7 @@ runAction store action =
             Result.Extra.unpack (Store.Msg.GotErrorFor action)
     in
     case action of
-        Store.Action.GetPostById postId toNextActions ->
+        Store.Action.GetPostById postId ->
             -- Stale while revalidate
             ( { store
                 | postsById =
@@ -214,7 +214,7 @@ runAction store action =
                         |> PostId.dict.update postId
                             (Maybe.withDefault Api.Data.notAsked >> Api.Data.toLoading >> Just)
               }
-            , Post.getById postId (onSuccess (\post -> Store.Msg.GotPost post (toNextActions post)))
+            , Post.getById postId (onSuccess Store.Msg.GotPost)
                 |> SendCmd
             )
 
@@ -283,7 +283,7 @@ runAction store action =
                 |> SendCmd
             )
 
-        Store.Action.GetAuthorById authorId toNextActions ->
+        Store.Action.GetAuthorById authorId ->
             -- Stale while revalidate
             ( { store
                 | authorsById =
@@ -291,7 +291,7 @@ runAction store action =
                         |> AuthorId.dict.update authorId
                             (Maybe.withDefault Api.Data.notAsked >> Api.Data.toLoading >> Just)
               }
-            , Author.getById authorId (onSuccess (\author -> Store.Msg.GotAuthor author (toNextActions author)))
+            , Author.getById authorId (onSuccess Store.Msg.GotAuthor)
                 |> SendCmd
             )
 

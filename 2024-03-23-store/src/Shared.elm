@@ -23,6 +23,7 @@ import Route exposing (Route)
 import Shared.Model
 import Shared.Msg
 import Store
+import Store.Action
 import Store.Msg
 
 
@@ -85,10 +86,16 @@ update route msg model =
                             -- TODO: Save error
                             ( store, Effect.none )
 
-                        Store.Msg.GotAuthor author nextActions ->
+                        Store.Msg.GotAuthor author ->
                             let
                                 nextStore =
                                     { store | authorsById = AuthorId.dict.insert (Author.id author) (Api.Data.succeed author) store.authorsById }
+
+                                nextActions =
+                                    author
+                                        |> Author.posts
+                                        |> List.concatMap
+                                            (.imageIds >> List.map Store.Action.GetImageById)
                             in
                             Effect.runActions nextStore nextActions
 
@@ -99,10 +106,14 @@ update route msg model =
                             in
                             ( nextStore, Effect.none )
 
-                        Store.Msg.GotPost post nextActions ->
+                        Store.Msg.GotPost post ->
                             let
                                 nextStore =
                                     { store | postsById = PostId.dict.insert post.id (Api.Data.succeed post) store.postsById }
+
+                                nextActions =
+                                    post.imageIds
+                                        |> List.map Store.Action.GetImageById
                             in
                             Effect.runActions nextStore nextActions
 

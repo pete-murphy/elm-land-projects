@@ -1,15 +1,13 @@
 module Store.Action exposing (..)
 
-import Api.Author as Author exposing (Author)
 import Api.AuthorId exposing (AuthorId)
 import Api.ImageId exposing (ImageId)
-import Api.Post exposing (Post)
 import Api.PostId exposing (PostId)
 
 
 type Action
     = GetPosts
-    | GetPostById PostId (Post -> List Action)
+    | GetPostById PostId
     | GetAuthors
-    | GetAuthorById AuthorId (Author Author.Full -> List Action)
+    | GetAuthorById AuthorId
     | GetImageById ImageId
